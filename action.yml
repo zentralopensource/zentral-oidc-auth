@@ -1,0 +1,70 @@
+name: 'Zentral OIDC Authentication'
+description: "Authenticate with the Zentral platform using GitHub OIDC tokens to obtain short-lived API tokens"
+author: "Zentral Pro Services GmbH"
+branding:
+  icon: "lock"
+  color: "blue"
+inputs:
+  ztl-fqdn:
+    description: 'FQDN of Zentral server'
+    required: true
+    default: 'https://dmd.zentral.com'
+  ztl-oidc-api-token-issuer-id:
+    description: 'Zentral OIDC Issuer ID'
+    required: true
+    default: ''
+  ztl-api-token-name:
+    description: 'How should the API token be named'
+    required: true
+    default: 'Github action'
+  ztl-api-token-validity:
+    description: 'How long should the API token be valid'
+    required: true
+    default: 600
+outputs:
+  api-token:
+    description: "Zentral API Token (short-lived)"
+    value: ${{ steps.ztlapitoken.outputs.api_token }}
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare ID token request
+      uses: actions/github-script@v8
+      id: idtokenprep
+      with:
+        debug: true
+        script: |
+          const token = process.env['ACTIONS_ID_TOKEN_REQUEST_TOKEN']
+          const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
+          core.setOutput('TOKEN', token.trim())
+          core.setOutput('IDTOKENURL', runtimeUrl.trim())
+
+    # Get Github OIDC token
+    - name: Get ID token
+      id: idtoken
+      run: |
+        IDTOKEN=$(curl -H "Authorization: Bearer ${{steps.idtokenprep.outputs.TOKEN}}" ${{steps.idtokenprep.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
+        echo $IDTOKEN
+        jwtd() {
+            if [[ -x $(command -v jq) ]]; then
+                jq -R 'split(".") | .[0],.[1] | @base64d | fromjson' <<< "${1}"
+                echo "Signature: $(echo "${1}" | awk -F'.' '{print $3}')"
+            fi
+        }
+        jwtd $IDTOKEN
+        echo "id_token=${IDTOKEN}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    # Exchange the OIDC token for a short-lived Zentral API token
+    - name: Get Zentral API token
+      id: ztlapitoken
+      run: |
+        API_TOKEN=$(curl -X POST -H 'Content-Type: application/json' -d "{\"jwt\": \"$ID_TOKEN\", \"name\": \"GitHub action\", \"validity\": $ZTL_API_TOKEN_VALIDITY}" https://$ZTL_FQDN/api/accounts/token_issuers/oidc/$ZTL_OIDC_API_TOKEN_ISSUER_ID/auth/ | jq -r .secret)
+        echo "api_token=${API_TOKEN}" >> $GITHUB_OUTPUT
+      shell: bash
+      env:
+        ZTL_FQDN: ${{ inputs.ztl-fqdn }}
+        ZTL_OIDC_API_TOKEN_ISSUER_ID: ${{ inputs.ZTL_OIDC_API_TOKEN_ISSUER_ID }}
+        ZTL_API_TOKEN_NAME: ${{ inputs.ztl-api-token-name }}
+        ZTL_API_TOKEN_VALIDITY: ${{ inputs.ztl-api-token-validity }}
+        ID_TOKEN: ${{ steps.idtoken.outputs.id_token }}
