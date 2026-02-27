@@ -81,7 +81,8 @@ runs:
         echo "api_useremail=${API_USEREMAIL}" >> $GITHUB_OUTPUT
         echo "ZTL_API_TOKEN=${API_TOKEN}" >> $GITHUB_ENV
         echo "ZTL_USERNAME=${API_USERNAME}" >> $GITHUB_ENV
-        echo "ZTL_USEREMAIL=${API_USEREMAIL}" >> $GITHUB_ENV
+        echo "ZTL_API_USERNAME=${API_USERNAME}" >> $GITHUB_ENV
+        echo "ZTL_API_USEREMAIL=${API_USEREMAIL}" >> $GITHUB_ENV
       shell: bash
       env:
         ZTL_FQDN: ${{ inputs.ztl-fqdn }}

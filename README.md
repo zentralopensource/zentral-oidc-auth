@@ -65,7 +65,7 @@ All outputs are availible as variables in the scope the workflow steps ` steps.a
 
 The short-lived API token
 
-### `ztl-api-username` / `$ZTL_API_USERNAME`
+### `ztl-api-username` / `$ZTL_API_USERNAME` / `$ZTL_USERNAME`
 
 The username associated with the API token
 
