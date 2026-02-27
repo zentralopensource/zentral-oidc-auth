@@ -52,7 +52,7 @@ runs:
     - name: Get ID token
       id: idtoken
       run: |
-        IDTOKEN=$(curl -H "Authorization: Bearer ${{steps.idtokenprep.outputs.TOKEN}}" ${{steps.idtokenprep.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
+        IDTOKEN=$(curl -s -H "Authorization: Bearer ${{steps.idtokenprep.outputs.TOKEN}}" ${{steps.idtokenprep.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
         if [[ $ZTL_OIDC_DEBUG -eq 1 ]]; then
           jwtd() {
             if [[ -x $(command -v jq) ]]; then
@@ -72,7 +72,7 @@ runs:
     - name: Get Zentral API token
       id: ztlapitoken
       run: |
-        JSON=$(curl -X POST -H 'Content-Type: application/json' -d "{\"jwt\": \"$ID_TOKEN\", \"name\": \"GitHub action\", \"validity\": $ZTL_API_TOKEN_VALIDITY}" https://$ZTL_FQDN/api/accounts/token_issuers/oidc/$ZTL_OIDC_API_TOKEN_ISSUER_ID/auth/)
+        JSON=$(curl -s -X POST -H 'Content-Type: application/json' -d "{\"jwt\": \"$ID_TOKEN\", \"name\": \"GitHub action\", \"validity\": $ZTL_API_TOKEN_VALIDITY}" https://$ZTL_FQDN/api/accounts/token_issuers/oidc/$ZTL_OIDC_API_TOKEN_ISSUER_ID/auth/)
         API_TOKEN=$(echo ${JSON} | jq -r .secret)
         API_USERNAME=$(echo ${JSON} | jq -r .user.username)
         API_USEREMAIL=$(echo ${JSON} | jq -r .user.email)
