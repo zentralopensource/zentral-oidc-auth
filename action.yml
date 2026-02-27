@@ -13,13 +13,17 @@ inputs:
     description: 'Zentral OIDC Issuer ID'
     required: true
     default: ''
+  ztl-oidc-debug:
+    description: 'Zentral OIDC Issuer ID'
+    required: false
+    default: 0
   ztl-api-token-name:
     description: 'How should the API token be named'
-    required: true
+    required: false
     default: 'Github action'
   ztl-api-token-validity:
     description: 'How long should the API token be valid (in seconds)'
-    required: true
+    required: false
     default: 600
 outputs:
   ztl-api-token:
@@ -38,7 +42,6 @@ runs:
       uses: actions/github-script@v8
       id: idtokenprep
       with:
-        debug: true
         script: |
           const token = process.env['ACTIONS_ID_TOKEN_REQUEST_TOKEN']
           const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
@@ -50,16 +53,19 @@ runs:
       id: idtoken
       run: |
         IDTOKEN=$(curl -H "Authorization: Bearer ${{steps.idtokenprep.outputs.TOKEN}}" ${{steps.idtokenprep.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
-        echo $IDTOKEN
-        jwtd() {
+        if [[ $ZTL_OIDC_DEBUG -eq 1 ]]; then
+          jwtd() {
             if [[ -x $(command -v jq) ]]; then
                 jq -R 'split(".") | .[0],.[1] | @base64d | fromjson' <<< "${1}"
                 echo "Signature: $(echo "${1}" | awk -F'.' '{print $3}')"
             fi
-        }
-        jwtd $IDTOKEN
+          }
+          jwtd $IDTOKEN
+        fi
         echo "id_token=${IDTOKEN}" >> $GITHUB_OUTPUT
       shell: bash
+      env:
+        ZTL_OIDC_DEBUG: ${{ inputs.ztl-oidc-debug }}
 
     # Exchange the OIDC token for a short-lived Zentral API token
     # Set API token, username, user email as output variables and as enviroment variables
