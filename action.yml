@@ -8,7 +8,7 @@ inputs:
   ztl-fqdn:
     description: 'FQDN of Zentral server'
     required: true
-    default: 'https://dmd.zentral.com'
+    default: 'https://mdm.zentral.com'
   ztl-oidc-api-token-issuer-id:
     description: 'Zentral OIDC Issuer ID'
     required: true
@@ -18,13 +18,19 @@ inputs:
     required: true
     default: 'Github action'
   ztl-api-token-validity:
-    description: 'How long should the API token be valid'
+    description: 'How long should the API token be valid (in seconds)'
     required: true
     default: 600
 outputs:
-  api-token:
+  ztl-api-token:
     description: "Zentral API Token (short-lived)"
     value: ${{ steps.ztlapitoken.outputs.api_token }}
+  ztl-api-username:
+    description: "Zentral API username"
+    value: ${{ steps.ztlapitoken.outputs.api_username }}
+  ztl-api-useremail:
+    description: "Zentral API user eamil"
+    value: ${{ steps.ztlapitoken.outputs.api_useremail }}
 runs:
   using: "composite"
   steps:
@@ -56,15 +62,24 @@ runs:
       shell: bash
 
     # Exchange the OIDC token for a short-lived Zentral API token
+    # Set API token, username, user email as output variables and as enviroment variables
     - name: Get Zentral API token
       id: ztlapitoken
       run: |
-        API_TOKEN=$(curl -X POST -H 'Content-Type: application/json' -d "{\"jwt\": \"$ID_TOKEN\", \"name\": \"GitHub action\", \"validity\": $ZTL_API_TOKEN_VALIDITY}" https://$ZTL_FQDN/api/accounts/token_issuers/oidc/$ZTL_OIDC_API_TOKEN_ISSUER_ID/auth/ | jq -r .secret)
+        JSON=$(curl -X POST -H 'Content-Type: application/json' -d "{\"jwt\": \"$ID_TOKEN\", \"name\": \"GitHub action\", \"validity\": $ZTL_API_TOKEN_VALIDITY}" https://$ZTL_FQDN/api/accounts/token_issuers/oidc/$ZTL_OIDC_API_TOKEN_ISSUER_ID/auth/)
+        API_TOKEN=$(echo ${JSON} | jq -r .secret)
+        API_USERNAME=$(echo ${JSON} | jq -r .user.username)
+        API_USEREMAIL=$(echo ${JSON} | jq -r .user.email)
         echo "api_token=${API_TOKEN}" >> $GITHUB_OUTPUT
+        echo "api_username=${API_USERNAME}" >> $GITHUB_OUTPUT
+        echo "api_useremail=${API_USEREMAIL}" >> $GITHUB_OUTPUT
+        echo "ZTL_API_TOKEN=${API_TOKEN}" >> $GITHUB_ENV
+        echo "ZTL_USERNAME=${API_USERNAME}" >> $GITHUB_ENV
+        echo "ZTL_USEREMAIL=${API_USEREMAIL}" >> $GITHUB_ENV
       shell: bash
       env:
         ZTL_FQDN: ${{ inputs.ztl-fqdn }}
-        ZTL_OIDC_API_TOKEN_ISSUER_ID: ${{ inputs.ZTL_OIDC_API_TOKEN_ISSUER_ID }}
+        ZTL_OIDC_API_TOKEN_ISSUER_ID: ${{ inputs.ztl-oidc-api-token-issuer-id }}
         ZTL_API_TOKEN_NAME: ${{ inputs.ztl-api-token-name }}
         ZTL_API_TOKEN_VALIDITY: ${{ inputs.ztl-api-token-validity }}
         ID_TOKEN: ${{ steps.idtoken.outputs.id_token }}
